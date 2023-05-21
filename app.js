@@ -12,6 +12,7 @@ const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const findOrCreate = require('mongoose-findorcreate');
+var FacebookStrategy = require('passport-facebook');
 
 const app = express();
 
@@ -33,6 +34,7 @@ const userSchema = new mongoose.Schema({
     email: String,
     password: String,
     googleId: String,
+    facebookId: String,
     secret: String
 });
 
@@ -74,6 +76,18 @@ passport.use(new GoogleStrategy({
   }
 ));
 
+passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
 app.get("/", function(req, res){
     res.render("home");
 });
@@ -82,6 +96,8 @@ app.get("/auth/google",
     passport.authenticate("google", { scope: ["profile"] })
 );
 
+app.get('/auth/facebook', passport.authenticate('facebook'));
+
 app.get("/auth/google/secrets",
     passport.authenticate("google", { failureRedirect: "/login" }),
     function (req, res) {
@@ -89,6 +105,13 @@ app.get("/auth/google/secrets",
         res.redirect("/secrets");
     }
 );
+
+app.get('/auth/facebook/secrets',
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  });
 
 
 app.get("/login", function(req, res){
@@ -203,6 +226,13 @@ app.listen(3000, function(){
     console.log("Server started on port 3000.");
 });
 
+
+
+
+
+// .env
 // SECRET=Thisisourlittkesecret.
 // CLIENT_ID=249070281881-021j4hs0fp48hp6trll74h3ou5hu88o7.apps.googleusercontent.com
 // CLIENT_SECRET=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
+// FACEBOOK_APP_ID=942274270224450
+// FACEBOOK_APP_SECRET=4389256f5f3746a41d872fe08c1a0399
